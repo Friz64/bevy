@@ -44,7 +44,7 @@ fn setup(
 }
 
 fn cycle_msaa(input: Res<Input<KeyCode>>, mut msaa: ResMut<Msaa>) {
-    if input.just_pressed(KeyCode::M) {
+    if input.just_pressed(KeyCode::KeyM) {
         if msaa.samples == 4 {
             info!("Not using MSAA");
             msaa.samples = 1;

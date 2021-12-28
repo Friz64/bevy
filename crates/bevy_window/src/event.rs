@@ -55,11 +55,11 @@ pub struct CursorLeft {
     pub id: WindowId,
 }
 
-/// An event that is sent whenever a window receives a character from the OS or underlying system.
+/// An event that is sent whenever a window receives a text input from the OS or underlying system.
 #[derive(Debug, Clone)]
-pub struct ReceivedCharacter {
+pub struct ReceivedTextInput {
     pub id: WindowId,
-    pub char: char,
+    pub text: &'static str,
 }
 
 /// An event that indicates a window has received or lost focus.

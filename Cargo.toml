@@ -382,8 +382,8 @@ path = "examples/game/game_menu.rs"
 
 # Input
 [[example]]
-name = "char_input_events"
-path = "examples/input/char_input_events.rs"
+name = "text_input_events"
+path = "examples/input/text_input_events.rs"
 
 [[example]]
 name = "gamepad_input"

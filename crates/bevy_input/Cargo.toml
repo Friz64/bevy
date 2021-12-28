@@ -21,3 +21,4 @@ bevy_utils = { path = "../bevy_utils", version = "0.6.0" }
 
 # other
 serde = { version = "1", features = ["derive"], optional = true }
+nameof = "1"

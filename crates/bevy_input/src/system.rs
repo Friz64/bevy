@@ -11,10 +11,8 @@ pub fn exit_on_esc_system(
     mut app_exit_events: EventWriter<AppExit>,
 ) {
     for event in keyboard_input_events.iter() {
-        if let Some(key_code) = event.key_code {
-            if event.state == ElementState::Pressed && key_code == KeyCode::Escape {
-                app_exit_events.send_default();
-            }
+        if event.state == ElementState::Pressed && event.key_code == KeyCode::Escape {
+            app_exit_events.send_default();
         }
     }
 }

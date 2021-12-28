@@ -15,13 +15,13 @@ use bevy_ecs::{system::IntoExclusiveSystem, world::World};
 use bevy_math::{ivec2, DVec2, Vec2};
 use bevy_utils::tracing::{error, trace, warn};
 use bevy_window::{
-    CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedCharacter,
+    CreateWindow, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, ReceivedTextInput,
     WindowBackendScaleFactorChanged, WindowCloseRequested, WindowCreated, WindowFocused,
     WindowMoved, WindowResized, WindowScaleFactorChanged, Windows,
 };
 use winit::{
     dpi::PhysicalPosition,
-    event::{self, DeviceEvent, Event, WindowEvent},
+    event::{self, DeviceEvent, ElementState, Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
 
@@ -300,10 +300,23 @@ pub fn winit_runner_with(mut app: App) {
                             .unwrap();
                         window_close_requested_events.send(WindowCloseRequested { id: window_id });
                     }
-                    WindowEvent::KeyboardInput { ref input, .. } => {
+                    WindowEvent::KeyboardInput { event, .. } => {
+                        if let Some(text) = event.text {
+                            if event.state == ElementState::Pressed {
+                                let mut text_input_events = world
+                                    .get_resource_mut::<Events<ReceivedTextInput>>()
+                                    .unwrap();
+
+                                text_input_events.send(ReceivedTextInput {
+                                    id: window_id,
+                                    text,
+                                });
+                            }
+                        }
+
                         let mut keyboard_input_events =
                             world.get_resource_mut::<Events<KeyboardInput>>().unwrap();
-                        keyboard_input_events.send(converters::convert_keyboard_input(input));
+                        keyboard_input_events.send(converters::convert_keyboard_input(&event));
                     }
                     WindowEvent::CursorMoved { position, .. } => {
                         let mut cursor_moved_events =
@@ -376,16 +389,6 @@ pub fn winit_runner_with(mut app: App) {
                             location.y = window_height - location.y;
                         }
                         touch_input_events.send(converters::convert_touch_input(touch, location));
-                    }
-                    WindowEvent::ReceivedCharacter(c) => {
-                        let mut char_input_events = world
-                            .get_resource_mut::<Events<ReceivedCharacter>>()
-                            .unwrap();
-
-                        char_input_events.send(ReceivedCharacter {
-                            id: window_id,
-                            char: c,
-                        })
                     }
                     WindowEvent::ScaleFactorChanged {
                         scale_factor,
