@@ -12,7 +12,8 @@ use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_utils::warn_once;
 use bevy_utils::{default, tracing::debug, HashSet};
 use bevy_window::{
-    CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
+    CompositeAlphaMode, InnerWindowReference, PresentMode, PrimaryWindow, RawHandleWrapper, Window,
+    WindowClosed,
 };
 use std::{
     ops::{Deref, DerefMut},
@@ -60,6 +61,7 @@ impl Plugin for WindowRenderPlugin {
 }
 
 pub struct ExtractedWindow {
+    _inner_ref: InnerWindowReference,
     /// An entity that contains the components in [`Window`].
     pub entity: Entity,
     pub handle: RawHandleWrapper,
@@ -116,11 +118,19 @@ fn extract_windows(
     mut extracted_windows: ResMut<ExtractedWindows>,
     screenshot_manager: Extract<Res<ScreenshotManager>>,
     mut closed: Extract<EventReader<WindowClosed>>,
-    windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
+    windows: Extract<
+        Query<(
+            Entity,
+            &Window,
+            &RawHandleWrapper,
+            &InnerWindowReference,
+            Option<&PrimaryWindow>,
+        )>,
+    >,
     mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
     mut window_surfaces: ResMut<WindowSurfaces>,
 ) {
-    for (entity, window, handle, primary) in windows.iter() {
+    for (entity, window, handle, inner_ref, primary) in windows.iter() {
         if primary.is_some() {
             extracted_windows.primary = Some(entity);
         }
@@ -131,6 +141,7 @@ fn extract_windows(
         );
 
         let extracted_window = extracted_windows.entry(entity).or_insert(ExtractedWindow {
+            _inner_ref: inner_ref.clone(),
             entity,
             handle: handle.clone(),
             physical_width: new_width,

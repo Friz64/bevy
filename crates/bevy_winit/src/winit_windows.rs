@@ -14,13 +14,15 @@ use crate::{
     accessibility::{prepare_accessibility_for_window, AccessKitAdapters, WinitActionHandlers},
     converters::{convert_enabled_buttons, convert_window_level, convert_window_theme},
 };
+use bevy_window::InnerWindow;
+use std::sync::Arc;
 
 /// A resource mapping window entities to their `winit`-backend [`Window`](winit::window::Window)
 /// states.
 #[derive(Debug, Default)]
 pub struct WinitWindows {
     /// Stores [`winit`] windows by window identifier.
-    pub windows: HashMap<winit::window::WindowId, winit::window::Window>,
+    pub windows: HashMap<winit::window::WindowId, InnerWindow>,
     /// Maps entities to `winit` window identifiers.
     pub entity_to_winit: EntityHashMap<winit::window::WindowId>,
     /// Maps `winit` window identifiers to entities.
@@ -41,7 +43,7 @@ impl WinitWindows {
         adapters: &mut AccessKitAdapters,
         handlers: &mut WinitActionHandlers,
         accessibility_requested: &AccessibilityRequested,
-    ) -> &winit::window::Window {
+    ) -> &InnerWindow {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
         // Due to a UIA limitation, winit windows need to be invisible for the
@@ -240,12 +242,12 @@ impl WinitWindows {
 
         self.windows
             .entry(winit_window.id())
-            .insert(winit_window)
+            .insert(Arc::new(winit_window))
             .into_mut()
     }
 
     /// Get the winit window that is associated with our entity.
-    pub fn get_window(&self, entity: Entity) -> Option<&winit::window::Window> {
+    pub fn get_window(&self, entity: Entity) -> Option<&InnerWindow> {
         self.entity_to_winit
             .get(&entity)
             .and_then(|winit_id| self.windows.get(winit_id))
@@ -261,7 +263,7 @@ impl WinitWindows {
     /// Remove a window from winit.
     ///
     /// This should mostly just be called when the window is closing.
-    pub fn remove_window(&mut self, entity: Entity) -> Option<winit::window::Window> {
+    pub fn remove_window(&mut self, entity: Entity) -> Option<InnerWindow> {
         let winit_id = self.entity_to_winit.remove(&entity)?;
         self.winit_to_entity.remove(&winit_id);
         self.windows.remove(&winit_id)

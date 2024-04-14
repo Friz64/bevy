@@ -11,6 +11,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::tracing::warn;
 
 use crate::CursorIcon;
+use std::{any::Any, sync::Arc};
 
 /// Marker [`Component`] for the window considered the primary window.
 ///
@@ -85,6 +86,17 @@ impl NormalizedWindowRef {
     /// Fetch the entity of this window reference
     pub fn entity(&self) -> Entity {
         self.0
+    }
+}
+
+pub type InnerWindow = Arc<dyn Any + Send + Sync>;
+
+#[derive(Debug, Clone, Component)]
+pub struct InnerWindowReference(#[allow(dead_code)] InnerWindow);
+
+impl InnerWindowReference {
+    pub fn new(inner_window: InnerWindow) -> InnerWindowReference {
+        InnerWindowReference(inner_window)
     }
 }
 

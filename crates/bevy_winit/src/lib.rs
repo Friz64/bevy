@@ -397,6 +397,7 @@ fn handle_winit_event(
                 let (_, winit_windows, _, _) = event_writer_system_state.get_mut(app.world_mut());
                 if visible && runner_state.active != ActiveState::WillSuspend {
                     for window in winit_windows.windows.values() {
+                        let window = window.downcast_ref::<winit::window::Window>().unwrap();
                         window.request_redraw();
                     }
                 } else {
@@ -447,6 +448,9 @@ fn handle_winit_event(
             // the engine.
             if let Some(adapter) = access_kit_adapters.get(&window) {
                 if let Some(winit_window) = winit_windows.get_window(window) {
+                    let winit_window = winit_window
+                        .downcast_ref::<winit::window::Window>()
+                        .unwrap();
                     adapter.process_event(winit_window, &event);
                 }
             }

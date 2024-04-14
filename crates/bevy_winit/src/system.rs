@@ -8,7 +8,8 @@ use bevy_ecs::{
 };
 use bevy_utils::tracing::{error, info, warn};
 use bevy_window::{
-    RawHandleWrapper, Window, WindowClosed, WindowCreated, WindowMode, WindowResized,
+    InnerWindowReference, RawHandleWrapper, Window, WindowClosed, WindowCreated, WindowMode,
+    WindowResized,
 };
 
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
@@ -57,7 +58,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
             entity
         );
 
-        let winit_window = winit_windows.create_window(
+        let inner_winit_window = winit_windows.create_window(
             event_loop,
             entity,
             &window,
@@ -65,6 +66,10 @@ pub fn create_windows<F: QueryFilter + 'static>(
             &mut handlers,
             &accessibility_requested,
         );
+
+        let winit_window = inner_winit_window
+            .downcast_ref::<winit::window::Window>()
+            .unwrap();
 
         if let Some(theme) = winit_window.theme() {
             window.window_theme = Some(convert_winit_theme(theme));
@@ -81,7 +86,8 @@ pub fn create_windows<F: QueryFilter + 'static>(
             })
             .insert(CachedWindow {
                 window: window.clone(),
-            });
+            })
+            .insert(InnerWindowReference::new(inner_winit_window.clone()));
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -135,7 +141,10 @@ pub(crate) fn changed_windows(
     mut window_resized: EventWriter<WindowResized>,
 ) {
     for (entity, mut window, mut cache) in &mut changed_windows {
-        let Some(winit_window) = winit_windows.get_window(entity) else {
+        let Some(winit_window) = winit_windows
+            .get_window(entity)
+            .and_then(|w| w.downcast_ref::<winit::window::Window>())
+        else {
             continue;
         };
 
