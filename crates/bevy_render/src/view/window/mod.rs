@@ -8,9 +8,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
-#[cfg(target_os = "linux")]
-use bevy_utils::warn_once;
-use bevy_utils::{default, tracing::debug, HashSet};
+use bevy_utils::{default, tracing::debug, warn_once, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosed,
 };
@@ -218,9 +216,6 @@ impl WindowSurfaces {
     }
 }
 
-#[cfg(target_os = "linux")]
-const NVIDIA_VENDOR_ID: u32 = 0x10DE;
-
 /// (re)configures window surfaces, and obtains a swapchain texture for rendering.
 ///
 /// NOTE: `get_current_texture` in `prepare_windows` can take a long time if the GPU workload is
@@ -252,7 +247,6 @@ pub fn prepare_windows(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
     mut msaa: ResMut<Msaa>,
-    #[cfg(target_os = "linux")] render_instance: Res<RenderInstance>,
 ) {
     for window in windows.windows.values_mut() {
         let window_surfaces = window_surfaces.deref_mut();
@@ -289,80 +283,13 @@ pub fn prepare_windows(
             *msaa = fallback;
         }
 
-        // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
-        // mesa driver implementations. This seems to be a quirk of some drivers.
-        // We'd rather keep panicking when not on Linux mesa, because in those case,
-        // the `Timeout` is still probably the symptom of a degraded unrecoverable
-        // application state.
-        // see https://github.com/bevyengine/bevy/pull/5957
-        // and https://github.com/gfx-rs/wgpu/issues/1218
-        #[cfg(target_os = "linux")]
-        let may_erroneously_timeout = || {
-            render_instance
-                .enumerate_adapters(wgpu::Backends::VULKAN)
-                .iter()
-                .any(|adapter| {
-                    let name = adapter.get_info().name;
-                    name.starts_with("Radeon")
-                        || name.starts_with("AMD")
-                        || name.starts_with("Intel")
-                })
-        };
+        window_surfaces.configured_windows.insert(window.entity);
 
-        #[cfg(target_os = "linux")]
-        let is_nvidia = || {
-            render_instance
-                .enumerate_adapters(wgpu::Backends::VULKAN)
-                .iter()
-                .any(|adapter| adapter.get_info().vendor & 0xFFFF == NVIDIA_VENDOR_ID)
-        };
+        match surface_data.surface.get_current_texture() {
+            Ok(frame) => window.set_swapchain_texture(frame),
+            Err(err) => warn_once!("Ignoring surface error: {err}"),
+        }
 
-        let not_already_configured = window_surfaces.configured_windows.insert(window.entity);
-
-        let surface = &surface_data.surface;
-        if not_already_configured || window.size_changed || window.present_mode_changed {
-            match surface.get_current_texture() {
-                Ok(frame) => window.set_swapchain_texture(frame),
-                #[cfg(target_os = "linux")]
-                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
-                    warn_once!(
-                        "Couldn't get swap chain texture. This often happens with \
-                        the NVIDIA drivers on Linux. It can be safely ignored."
-                    );
-                }
-                Err(err) => panic!("Error configuring surface: {err}"),
-            };
-        } else {
-            match surface.get_current_texture() {
-                Ok(frame) => {
-                    window.set_swapchain_texture(frame);
-                }
-                #[cfg(target_os = "linux")]
-                Err(wgpu::SurfaceError::Outdated) if is_nvidia() => {
-                    warn_once!(
-                        "Couldn't get swap chain texture. This often happens with \
-                        the NVIDIA drivers on Linux. It can be safely ignored."
-                    );
-                }
-                Err(wgpu::SurfaceError::Outdated) => {
-                    render_device.configure_surface(surface, &surface_data.configuration);
-                    let frame = surface
-                        .get_current_texture()
-                        .expect("Error reconfiguring surface");
-                    window.set_swapchain_texture(frame);
-                }
-                #[cfg(target_os = "linux")]
-                Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
-                    bevy_utils::tracing::trace!(
-                        "Couldn't get swap chain texture. This is probably a quirk \
-                        of your Linux GPU driver, so it can be safely ignored."
-                    );
-                }
-                Err(err) => {
-                    panic!("Couldn't get swap chain texture, operation unrecoverable: {err}");
-                }
-            }
-        };
         window.swap_chain_texture_format = Some(surface_data.configuration.format);
 
         if window.screenshot_func.is_some() {
